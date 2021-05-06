@@ -1,0 +1,25 @@
+VERSION 1
+
+SCHEMA >
+    `timestamp` DateTime,
+    `source` String,
+    `body_bytes_sent` Int32,
+    `http_user_agent` String,
+    `remote_addr` String,
+    `request` String,
+    `request_method` String,
+    `request_path` String,
+    `path_part_1` String,
+    `path_part_2` String,
+    `path_part_3` String,
+    `path_part_4` String,
+    `request_pathshape` String,
+    `request_protocol_version` String,
+    `request_shape` String,
+    `request_uri` String,
+    `status` Int32
+
+ENGINE "MergeTree"
+ENGINE_PARTITION_KEY "toDate(timestamp)"
+ENGINE_SORTING_KEY "timestamp"
+ENGINE_TTL "toDate(timestamp) + INTERVAL 3 DAY"

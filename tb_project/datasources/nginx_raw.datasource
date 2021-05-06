@@ -1,0 +1,5 @@
+
+SCHEMA >
+    `data` String
+
+ENGINE "Null"

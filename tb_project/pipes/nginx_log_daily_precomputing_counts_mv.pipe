@@ -1,0 +1,37 @@
+VERSION 1
+
+NODE materialize
+DESCRIPTION >
+    Lets you have 2 levels less of aggregation (request_method and status). With ~10M of data the performance difference is not significative but it may be with more data
+SQL >
+    SELECT  
+        toDate(timestamp) date,
+        path_part_1,
+        path_part_2,
+        path_part_3,
+        path_part_4,
+        sum(body_bytes_sent) body_bytes_sent_sum,
+        avgState(body_bytes_sent) body_bytes_sent_avg,
+        medianState(body_bytes_sent) body_bytes_sent_median,
+        countState() requests_count,
+        countIfState(request_method == 'GET') requests_count_get,
+        countIfState(request_method == 'POST') requests_count_post,
+        countIfState(request_method == 'PUT') requests_count_put,
+        countIfState(request_method == 'DELETE') requests_count_delete,
+        countIfState(200 <= status and status < 300) count_status_2xx,
+        countIfState(300 <= status and status < 400) count_status_3xx,
+        countIfState(400 <= status and status < 500) count_status_4xx,
+        countIfState(status == 429) count_status_429,
+        countIfState(500 <= status) count_status_5xx
+
+    FROM nginx_log
+    GROUP BY
+        date,
+        path_part_1,
+        path_part_2,
+        path_part_3,
+        path_part_4
+
+
+TYPE materialized
+DATASOURCE nginx_log_daily_precomputing_counts

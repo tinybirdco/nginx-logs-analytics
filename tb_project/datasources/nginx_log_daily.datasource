@@ -1,0 +1,23 @@
+VERSION 1
+
+SCHEMA >
+    `date` Date,
+    `path_part_1` LowCardinality(String),
+    `path_part_2` LowCardinality(String),
+    `path_part_3` LowCardinality(String),
+    `path_part_4` LowCardinality(String),
+    `request_method` LowCardinality(String),
+    `status` Int32,
+    `unique_ips` AggregateFunction(uniq, String),
+    `body_bytes_sent_sum` SimpleAggregateFunction(sum, Int64),
+    `body_bytes_sent_avg` AggregateFunction(avg, Int32),
+    `body_bytes_sent_median` AggregateFunction(median, Int32),
+    `body_bytes_sent_p90` AggregateFunction(quantile(0.9), Int32),
+    `body_bytes_sent_p95` AggregateFunction(quantile(0.95), Int32),
+    `body_bytes_sent_p99` AggregateFunction(quantile(0.99), Int32),
+    `requests_count` AggregateFunction(count)
+
+ENGINE "AggregatingMergeTree"
+ENGINE_PARTITION_KEY "toDate(date)"
+ENGINE_SORTING_KEY "date, path_part_1, path_part_2, path_part_3, path_part_4, request_method, status"
+ENGINE_TTL date + INTERVAL 30 DAY

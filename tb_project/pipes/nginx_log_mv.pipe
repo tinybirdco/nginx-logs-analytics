@@ -1,0 +1,56 @@
+VERSION 1
+
+NODE extract_json_data
+SQL >
+
+    SELECT 
+        parseDateTimeBestEffort(JSONExtractString(data, '_time')) AS timestamp,
+        JSONExtractString(data, 'src') AS source,
+        JSONExtractInt(data, 'body_bytes_sent') AS body_bytes_sent, 
+        JSONExtractString(data, 'http_user_agent') AS http_user_agent, 
+        JSONExtractString(data, 'remote_addr') AS remote_addr, 
+        JSONExtractString(data, 'request') AS request, 
+        JSONExtractString(data, 'request_method') AS request_method, 
+        JSONExtractString(data, 'request_path') AS request_path, 
+        JSONExtractString(data, 'request_pathshape') AS request_pathshape, 
+        JSONExtractString(data, 'request_protocol_version') AS request_protocol_version, 
+        JSONExtractString(data, 'request_shape') AS request_shape, 
+        JSONExtractString(data, 'request_uri') AS request_uri, 
+        JSONExtractInt(data, 'status') AS status
+    FROM nginx_raw 
+
+NODE extract_path_parts
+SQL >
+    select
+        *,
+        splitByChar('/', request_path) parts,
+        parts[2] path_part_1,
+        parts[3] path_part_2,
+        parts[4] path_part_3,
+        parts[5] path_part_4
+    from extract_json_data
+
+NODE result
+SQL >
+    SELECT
+        timestamp,
+        source,
+        body_bytes_sent,
+        http_user_agent,
+        remote_addr,
+        request,
+        request_method,
+        request_path,
+        path_part_1,
+        path_part_2,
+        path_part_3,
+        path_part_4,
+        request_pathshape,
+        request_protocol_version,
+        request_shape,
+        request_uri,
+        status
+    FROM extract_path_parts
+
+TYPE materialized
+DATASOURCE nginx_log

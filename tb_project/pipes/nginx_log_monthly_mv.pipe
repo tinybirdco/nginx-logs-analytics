@@ -1,0 +1,34 @@
+VERSION 1
+
+NODE materialize
+SQL >
+    SELECT  
+        toStartOfMonth(timestamp) date,
+        path_part_1,
+        path_part_2,
+        path_part_3,
+        path_part_4,
+        request_method,
+        status,
+        uniqState(remote_addr) unique_ips,
+        sum(body_bytes_sent) body_bytes_sent_sum,
+        avgState(body_bytes_sent) body_bytes_sent_avg,
+        medianState(body_bytes_sent) body_bytes_sent_median,
+        quantileState(0.9)(body_bytes_sent) body_bytes_sent_p90,
+        quantileState(0.95)(body_bytes_sent) body_bytes_sent_p95,
+        quantileState(0.99)(body_bytes_sent) body_bytes_sent_p99,
+        countState() requests_count
+
+    FROM nginx_log
+    GROUP BY
+        date,
+        path_part_1,
+        path_part_2,
+        path_part_3,
+        path_part_4, 
+        request_method, 
+        status
+
+
+TYPE materialized
+DATASOURCE nginx_log_monthly

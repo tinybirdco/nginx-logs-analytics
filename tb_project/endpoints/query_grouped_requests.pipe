@@ -1,0 +1,120 @@
+VERSION 1
+DESCRIPTION >
+	Lets you query 3 materialized views with aggregations by different columns, on different timeframes, select the grouping and order by columns. 
+    This endpoint returns:
+    - requests per unit of time and how it evolves over time: add `date` to the `group_by` param
+    - bandwidth use (total and average) and how it evolves over time. Total, median and avg bytes sent are returned for each group. To see the evolution over time, also add `date` to the `group_by` param
+    - error codes distribution: `count_status_2xx`, `count_status_3xx`, `count_status_4xx`, `count_status_429` and `count_status_5xx` are returned for each row as well
+    - distribution of calls to API endpoints vs the Tinybird API, or ingestion vs queries, etc.: this can be achieved adding `path_part_1` to `group_by`.
+    Columns returned per group:
+    - `count_requests`
+    - `count_status_2xx`
+    - `count_status_3xx`
+    - `count_status_4xx`
+    - `count_status_429`
+    - `count_status_5xx`
+    - `count_get_requests`
+    - `count_post_requests`
+    - `count_put_requests`
+    - `count_delete_requests`
+    - `unique_ips`
+    - `body_bytes_sent_sum`
+    - `body_bytes_sent_avg`   
+    - `body_bytes_sent_median` 
+    - `body_bytes_sent_p90`
+    - `body_bytes_sent_p95`
+    - `body_bytes_sent_p99`
+    Selects the MV to query from depending on the interval of days between `start_date` and `end_date`.
+    The possible values for `group_by` and `order_by` are (comma-separated):
+    - `date`
+    - `path_part_1`
+    - `path_part_2`
+    - `path_part_3`
+    - `path_part_4` 
+    - `request_method` 
+    - `status`
+    Possible values for `order_by`:
+    - `count_requests`
+    - `count_status_2xx`
+    - `count_status_3xx`
+    - `count_status_4xx`
+    - `count_status_429`
+    - `count_status_5xx`
+    - `count_get_requests`
+    - `count_post_requests`
+    - `count_put_requests`
+    - `count_delete_requests`
+    - `unique_ips`
+    - `body_bytes_sent_sum`
+    - `body_bytes_sent_avg`   
+    - `body_bytes_sent_median` 
+    - `body_bytes_sent_p90`
+    - `body_bytes_sent_p95`
+    - `body_bytes_sent_p99`    plus the columns you pass in the `group_by` param
+    Examples:
+    - **Requests per period**: ?group_by=date&start_date=2021-04-13&end_date=2021-04-21
+    - **Requests per period** (will group per month as the interval is bigger than 30 days): ?group_by=date&start_date=2020-04-13&end_date=2021-04-21
+    - **Requests per period** (will group per hour as the interval is lower than 7 days): ?group_by=date&start_date=2021-04-18&end_date=2021-04-21
+    - **Endpoints with the most request (high level)**: ?group_by=path_part_1&order_by=count_requests&start_date=2021-04-13&end_date=2021-04-21
+    - **Endpoints with the most request (more detail)**: ?group_by=path_part_1,path_part_2&order_by=count_requests&start_date=2021-04-13&end_date=2021-04-21
+    - **Endpoints with the most errors (even more detailed)**: ?group_by=path_part_1,path_part_2,path_part_3&order_by=count_status_5xx&start_date=2021-04-13&end_date=2021-04-21
+
+
+NODE processing
+SQL >
+
+    %
+            {% if not defined(start_date) or not defined(end_date) %}
+                {{error('You have to define start_date and end_date. The format is YYYY-MM-DD')}}
+            {% end %}
+            SELECT 
+                {{columns(group_by, 'date')}},
+                count() count_requests,
+                countIf(200 <= status and status < 300) count_status_2xx,
+                countIf(300 <= status and status < 400) count_status_3xx,
+                countIf(400 <= status and status < 500) count_status_4xx,
+                countIf(status == 429) count_status_429,
+                countIf(500 <= status) count_status_5xx,
+                countIf(request_method == 'GET') count_get_requests,
+                countIf(request_method == 'POST') count_post_requests,
+                countIf(request_method == 'PUT') count_put_requests,
+                countIf(request_method == 'DELETE') count_delete_requests,
+                uniqMerge(unique_ips) unique_ips,
+                sum(body_bytes_sent_sum) body_bytes_sent_sum,
+                avgMerge(body_bytes_sent_avg) body_bytes_sent_avg,
+                medianMerge(body_bytes_sent_median) body_bytes_sent_median,
+                quantileMerge(0.9)(body_bytes_sent_p90) body_bytes_sent_p90,
+                quantileMerge(0.95)(body_bytes_sent_p95) body_bytes_sent_p95,
+                quantileMerge(0.99)(body_bytes_sent_p99) body_bytes_sent_p99
+            FROM
+                {% set _days_interval = day_diff(Date(start_date), Date(end_date)) %}
+                {% if _days_interval > 30 %}
+                    {{TABLE('nginx_log_monthly')}}
+                {% elif _days_interval > 7 %}
+                    {{TABLE('nginx_log_daily')}}
+                {% elif _days_interval > 0 %}
+                    {{TABLE('nginx_log_hourly')}}
+                {% else %}
+                    {{TABLE('nginx_log_5mins')}}
+                {% end %}   
+            WHERE toDate(date) BETWEEN {{Date(start_date)}} AND {{Date(end_date)}}
+            GROUP BY {{columns(group_by, 'date')}}
+            ORDER BY {{columns(order_by, 'date')}} DESC
+
+
+
+NODE define_params
+SQL >
+
+    %
+            WITH
+                (select {{Date(start_date, '2021-04-13', description="Start date, format YYYY-MM-DD", required=True)}}) as start_date,
+                (select {{Date(end_date, '2021-04-21', description="End date, format YYYY-MM-DD", required=True)}}) as end_date,
+                (select {{Array(group_by, 'String', 'date', description="Columns to group by", required=True)}}) as group_by,
+                (select {{Array(cols, 'String', 'count_requests,count_status_2xx,count_status_3xx,count_status_4xx,count_status_429,count_status_5xx,count_get_requests,count_post_requests,count_put_requests,count_delete_requests,unique_ips,body_bytes_sent_sum,body_bytes_sent_avg,body_bytes_sent_median,body_bytes_sent_p90,body_bytes_sent_p95,body_bytes_sent_p99', description="Columns to group by", required=True)}}) as cols,
+                (select {{Array(order_by, 'String', 'date', description="Columns to order by, in desc order")}}) as order_by
+            SELECT 
+                {{columns(group_by, 'date')}},
+                {{columns(cols, 'count_requests,count_status_2xx,count_status_3xx,count_status_4xx,count_status_429,count_status_5xx,count_get_requests,count_post_requests,count_put_requests,count_delete_requests,unique_ips,body_bytes_sent_sum,body_bytes_sent_avg,body_bytes_sent_median,body_bytes_sent_p90,body_bytes_sent_p95,body_bytes_sent_p99')}}
+            FROM processing
+
