@@ -3,8 +3,8 @@
 # necessary to append data to ip2nation
 # tb push datasources/countries.datasource
 # necessary to append data to countries
+# todo: extract countries info
 
-# we should extract country info here too
 tb push pipes/nginx_log_mv.pipe --push-deps --populate
 tb push pipes/nginx_log_daily_mv.pipe --push-deps --populate
 # tb push pipes/nginx_log_daily_precomputing_counts_mv.pipe --push-deps --populate
